@@ -3,17 +3,19 @@ using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
-public class WaterEffect : MonoBehaviour
+public class MainPPVolumeManager : MonoBehaviour
 {
-    [SerializeField] GameObject PostProcessingVolume;
+    [SerializeField]GameObject PostProcessingVolume;
     Collider _collider;
 
+    // Start is called before the first frame update
     void Start()
     {
         _collider = GetComponent<Collider>();
     }
 
-    void FixedUpdate()
+    // Update is called once per frame
+    void Update()
     {
         Camera cam = SceneLoader.CurrentCamera.Camera;
 
