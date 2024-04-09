@@ -14,8 +14,6 @@ namespace Controllers
         public bool HideCursor;
         protected Human _human;
         protected float _reelOutScrollTimeLeft;
-        protected float _reelInScrollCooldownLeft = 0f;
-        protected float _reelInScrollCooldown = 0.2f;
         protected HumanInputSettings _humanInput;
         protected Dictionary<HumanDashDirection, KeybindSetting> _dashKeys;
         protected Dictionary<HumanDashDirection, float> _dashTimes;
@@ -203,8 +201,8 @@ namespace Controllers
         {
             if (_humanInput.HookLeft.GetKeyDown())
             {
-                _inGameMenu.ShowKillFeed("test", "test", 100, "Thunderspear");
-                _inGameMenu.ShowKillScore(100);
+                _inGameMenu.ShowKillFeed("test", "test", 800, "Thunderspear");
+                _inGameMenu.ShowKillScore(800);
             }
             if (_humanInput.HookRight.GetKeyDown())
             {
@@ -333,34 +331,7 @@ namespace Controllers
             if (_reelOutScrollTimeLeft <= 0f)
                 _human.ReelOutAxis = 0f;
             if (_humanInput.ReelIn.GetKey())
-            {
-                if (!_human._reelInWaitForRelease)
-                    _human.ReelInAxis = -1f;
-                _reelInScrollCooldownLeft = _reelInScrollCooldown;
-            }
-            else
-            {
-                bool hasScroll = false;
-                _reelInScrollCooldownLeft -= Time.deltaTime;
-                foreach (InputKey inputKey in _humanInput.ReelIn.InputKeys)
-                {
-                    if (inputKey.IsWheel())
-                        hasScroll = true;
-                }
-                foreach (InputKey inputKey in _humanInput.ReelIn.InputKeys)
-                {
-                    if (inputKey.IsWheel())
-                    {
-                        if (_reelInScrollCooldownLeft <= 0f)
-                            _human._reelInWaitForRelease = false;
-                    }
-                    else
-                    {
-                        if (!hasScroll || inputKey.GetKeyUp())
-                            _human._reelInWaitForRelease = false;
-                    }
-                }
-            }
+                _human.ReelInAxis = -1f;
             foreach (InputKey inputKey in _humanInput.ReelOut.InputKeys)
             {
                 if (inputKey.GetKey())
@@ -375,7 +346,7 @@ namespace Controllers
         void UpdateDashInput(bool inMenu)
         {
             if (!_human.Grounded && _human.State != HumanState.AirDodge && _human.MountState == HumanMountState.None && _human.State != HumanState.Grab && _human.CarryState != HumanCarryState.Carry
-                && _human.State != HumanState.Stun && _human.State != HumanState.EmoteAction && _human.State != HumanState.SpecialAction
+                && _human.State != HumanState.Stun && _human.State != HumanState.EmoteAction && _human.State != HumanState.SpecialAttack && _human.State != HumanState.SpecialAction
                 && !inMenu && !_human.Dead)
             {
                 HumanDashDirection currentDirection = HumanDashDirection.None;

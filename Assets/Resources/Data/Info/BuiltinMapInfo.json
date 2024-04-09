@@ -8,12 +8,6 @@
 					"Name": "Forest"
 				},
 				{
-					"Name": "ForestFlooded"
-				},
-				{
-					"Name": "ForestLava"
-				},
-				{
 					"Name": "City"
 				},
 				{
@@ -52,21 +46,13 @@
 				},
 				{
 					"Category": "General",
-					"Name": "ForestFlooded"
-				},
-				{
-					"Category": "General",
-					"Name": "ForestLava"
-				},
-				{
-					"Category": "General",
 					"Name": "City"
 				},
 				{
 					"Name": "House"
 				},
 				{
-					"Name": "Cave2"
+					"Name": "Cave"
 				},
 				{
 					"Name": "Temple Arena"

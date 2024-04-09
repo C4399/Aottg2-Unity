@@ -47,7 +47,6 @@ namespace ApplicationManagers
             PhysicsLayer.Init();
             MaterialCache.Init();
             EventManager.Init();
-            HumanSetup.Init();
             SettingsManager.Init();
             FullscreenHandler.Init();
             UIManager.Init();
@@ -67,6 +66,7 @@ namespace ApplicationManagers
                 DebugTesting.Init();
                 DebugTesting.RunTests();
             }
+            HumanSetup.Init();
             BasicTitanSetup.Init();
             CharacterData.Init();
             MiscInfo.Init();

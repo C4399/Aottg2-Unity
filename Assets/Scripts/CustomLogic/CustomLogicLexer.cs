@@ -1,6 +1,10 @@
 ﻿using ApplicationManagers;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
+using System.Text;
+using UnityEngine;
+using Utility;
 
 namespace CustomLogic
 {
@@ -11,9 +15,6 @@ namespace CustomLogic
         protected int _lineOffset;
         public string Error = "";
 
-        private int _line;
-        private char[] _chars;
-        
         public CustomLogicLexer(string source, int lineOffset)
         {
             _source = source;
@@ -22,91 +23,89 @@ namespace CustomLogic
 
         public List<CustomLogicToken> GetTokens()
         {
-            _line = 0;
             _tokens.Clear();
-            _chars = _source.ToCharArray();
-            
-            for (int i = 0; i < _chars.Length; i++)
+            string[] sourceArr = _source.Split('\n');
+            List<char> chars = new List<char>();
+            List<int> lines = new List<int>();
+            for (int i = 0; i < sourceArr.Length; i++)
             {
-                char c = _chars[i];
+                string line = sourceArr[i];
+                for (int j = 0; j < line.Length; j++)
+                {
+                    chars.Add(line[j]);
+                    lines.Add(i);
+                }
+            }
+            for (int i = 0; i < chars.Count; i++)
+            {
+                char c = chars[i];
+                int line = lines[i];
                 try
                 {
-                    if (c == '\n')
-                    {
-                        _line++;
-                        continue;
-                    }
-                    
                     string twoCharToken = c.ToString();
-                    if (i < _chars.Length - 1)
-                        twoCharToken += _chars[i + 1];
+                    if (i < chars.Count - 1)
+                        twoCharToken += chars[i + 1];
                     if (char.IsLetter(c) || c == '_')
                     {
-                        string boolStr = ScanBool(i);
+                        string boolStr = ScanBool(i, chars);
                         if (boolStr != "")
                         {
-                            AddToken(CustomLogicTokenType.Primitive, boolStr == "true", _line);
+                            AddToken(CustomLogicTokenType.Primitive, boolStr == "true", line);
                             i += boolStr.Length - 1;
                         }
                         else
                         {
-                            string alphaSymbol = ScanAlphaSymbol(i);
+                            string alphaSymbol = ScanAlphaSymbol(i, chars);
                             if (alphaSymbol != "")
                             {
                                 if (alphaSymbol == "null")
-                                    AddToken(CustomLogicTokenType.Primitive, null, _line);
+                                    AddToken(CustomLogicTokenType.Primitive, null, line);
                                 else
-                                    AddToken(CustomLogicTokenType.Symbol, CustomLogicSymbols.Symbols[alphaSymbol], _line);
+                                    AddToken(CustomLogicTokenType.Symbol, CustomLogicSymbols.Symbols[alphaSymbol], line);
                                 i += alphaSymbol.Length - 1;
                             }
                             else
                             {
-                                string name = ScanName(i);
-                                AddToken(CustomLogicTokenType.Name, name, _line);
+                                string name = ScanName(i, chars);
+                                AddToken(CustomLogicTokenType.Name, name, line);
                                 i += name.Length - 1;
                             }
                         }
                     }
-                    else if (char.IsDigit(c) || (c == '-' && i < _chars.Length - 1 && char.IsDigit(_chars[i + 1])))
+                    else if (char.IsDigit(c) || (c == '-' && i < chars.Count - 1 && char.IsDigit(chars[i + 1])))
                     {
-                        string numberStr = ScanNumber(i);
+                        string numberStr = ScanNumber(i, chars);
                         if (numberStr.Contains("."))
-                            AddToken(CustomLogicTokenType.Primitive, float.Parse(numberStr), _line);
+                            AddToken(CustomLogicTokenType.Primitive, float.Parse(numberStr), line);
                         else
-                            AddToken(CustomLogicTokenType.Primitive, int.Parse(numberStr), _line);
+                            AddToken(CustomLogicTokenType.Primitive, int.Parse(numberStr), line);
                         i += numberStr.Length - 1;
                     }
                     else if (c == '\"')
                     {
-                        string strLiteral = ScanStringLiteral(i);
-                        AddToken(CustomLogicTokenType.Primitive, strLiteral, _line);
+                        string strLiteral = ScanStringLiteral(i, chars);
+                        AddToken(CustomLogicTokenType.Primitive, strLiteral, line);
                         i += strLiteral.Length + 1;
                     }
                     else if (c == '#')
                     {
-                        string comment = ScanComment(i);
+                        string comment = ScanComment(i, chars);
                         i += comment.Length + 1;
                     }
                     else if (CustomLogicSymbols.SpecialSymbolNames.Contains(twoCharToken))
                     {
-                        AddToken(CustomLogicTokenType.Symbol, CustomLogicSymbols.Symbols[twoCharToken], _line);
+                        AddToken(CustomLogicTokenType.Symbol, CustomLogicSymbols.Symbols[twoCharToken], line);
                         i += 1;
                     }
                     else if (CustomLogicSymbols.SpecialSymbolNames.Contains(c.ToString()))
                     {
-                        if (c == '/' && i + 1 < _chars.Length && _chars[i + 1] == '*')
-                        {
-                            var comment = ScanBlockComment(i + 1);
-                            i += comment.Length + 3;
-                        }
-                        else
-                            AddToken(CustomLogicTokenType.Symbol, CustomLogicSymbols.Symbols[c.ToString()], _line);
+                        AddToken(CustomLogicTokenType.Symbol, CustomLogicSymbols.Symbols[c.ToString()], line);
                     }
                 }
                 catch (Exception e)
                 {
-                    _line = _line + 1 + _lineOffset;
-                    Error = "Error parsing custom logic at line " + _line.ToString() + ": " + e.Message;
+                    line = line + 1 + _lineOffset;
+                    Error = "Error parsing custom logic at line " + line.ToString() + ": " + e.Message;
                     DebugConsole.Log(Error, true);
                     return new List<CustomLogicToken>();
                 }
@@ -119,107 +118,84 @@ namespace CustomLogic
             _tokens.Add(new CustomLogicToken(type, value, line + 1 - _lineOffset ));
         }
 
-        private string ScanAlphaSymbol(int startIndex)
+        private string ScanAlphaSymbol(int startIndex, List<char> chars)
         {
             string currentLexeme = "";
-            for (int i = startIndex; i < _chars.Length; i++)
+            for (int i = startIndex; i < chars.Count; i++)
             {
-                if (!char.IsLetter(_chars[i]) && _chars[i] != '_')
+                if (!char.IsLetter(chars[i]) && chars[i] != '_')
                 {
                     if (CustomLogicSymbols.AlphaSymbolNames.Contains(currentLexeme))
                         return currentLexeme;
                     return "";
                 }
-                currentLexeme += _chars[i];
+                currentLexeme += chars[i];
             }
             return "";
         }
 
-        private string ScanBool(int startIndex)
+        private string ScanBool(int startIndex, List<char> chars)
         {
             string currentLexeme = "";
-            for (int i = startIndex; i < _chars.Length; i++)
+            for (int i = startIndex; i < chars.Count; i++)
             {
-                if (!char.IsLetter(_chars[i]))
+                if (!char.IsLetter(chars[i]))
                 {
                     if (currentLexeme == "true" || currentLexeme == "false")
                         return currentLexeme;
                     return "";
                 }
-                currentLexeme += _chars[i];
+                currentLexeme += chars[i];
             }
             return "";
         }
 
-        private string ScanNumber(int startIndex)
+        private string ScanNumber(int startIndex, List<char> chars)
         {
             string currentLexeme = "";
-            for (int i = startIndex; i < _chars.Length; i++)
+            for (int i = startIndex; i < chars.Count; i++)
             {
-                if (!char.IsDigit(_chars[i]) && _chars[i] != '.' && !(i == startIndex && _chars[i] == '-'))
+                if (!char.IsDigit(chars[i]) && chars[i] != '.' && !(i == startIndex && chars[i] == '-'))
                     return currentLexeme;
-                currentLexeme += _chars[i];
+                currentLexeme += chars[i];
             }
             return currentLexeme;
         }
 
-        private string ScanName(int startIndex)
+        private string ScanName(int startIndex, List<char> chars)
         {
             string currentLexeme = "";
-            for (int i = startIndex; i < _chars.Length; i++)
+            for (int i = startIndex; i < chars.Count; i++)
             {
-                if (!char.IsLetterOrDigit(_chars[i]) && _chars[i] != '_')
+                if (!char.IsLetterOrDigit(chars[i]) && chars[i] != '_')
                     return currentLexeme;
-                currentLexeme += _chars[i];
+                currentLexeme += chars[i];
             }
             return currentLexeme;
         }
 
-        private string ScanStringLiteral(int startIndex)
+        private string ScanStringLiteral(int startIndex, List<char> chars)
         {
             string currentLexeme = "";
-            for (int i = startIndex + 1; i < _chars.Length; i++)
+            for (int i = startIndex + 1; i < chars.Count; i++)
             {
-                if (_chars[i] == '\n')
-                    _line++;
-                
-                if (_chars[i] == '\"')
+                if (chars[i] == '\"')
                     return currentLexeme;
-                currentLexeme += _chars[i];
+                currentLexeme += chars[i];
             }
             throw new Exception("Unclosed string literal");
         }
 
-        private string ScanComment(int startIndex)
+        private string ScanComment(int startIndex, List<char> chars)
         {
             string currentLexeme = "";
-            for (int i = startIndex + 1; i < _chars.Length; i++)
+            for (int i = startIndex + 1; i < chars.Count; i++)
             {
-                if (_chars[i] == '\n')
-                {
-                    _line++;
+                if (chars[i] == '#')
                     return currentLexeme;
-                }
-                currentLexeme += _chars[i];
+                currentLexeme += chars[i];
             }
             throw new Exception("Unclosed comment");
-        }
-        
-        private string ScanBlockComment(int startIndex)
-        {
-            string currentLexeme = "";
-            for (int i = startIndex + 1; i < _chars.Length; i++)
-            {
-                if (_chars[i] == '\n')
-                    _line++;
-                
-                if (_chars[i] == '*' && i + 1 < _chars.Length && _chars[i + 1] == '/')
-                    return currentLexeme;
-
-                currentLexeme += _chars[i];
-            }
-
-            throw new Exception("Unclosed block comment");
         }
     }
 }

@@ -3,7 +3,6 @@ using System.IO;
 using Utility;
 using Settings;
 using System.Collections.Generic;
-using ApplicationManagers;
 
 namespace Characters
 {
@@ -15,18 +14,9 @@ namespace Characters
 
         public static void Init()
         {
-            if (ApplicationConfig.DevelopmentMode)
-            {
-                TitanAIInfo = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/TitanAIInfo.json"));
-                ShifterAIInfo = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/ShifterAIInfo.json"));
-                HumanWeaponInfo = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/HumanWeaponInfo.json"));
-            }
-            else
-            {
-                TitanAIInfo = JSON.Parse(ResourceManager.TryLoadText(ResourcePaths.CharacterData, "TitanAIInfo"));
-                ShifterAIInfo = JSON.Parse(ResourceManager.TryLoadText(ResourcePaths.CharacterData, "ShifterAIInfo"));
-                HumanWeaponInfo = JSON.Parse(ResourceManager.TryLoadText(ResourcePaths.CharacterData, "HumanWeaponInfo"));
-            }
+            TitanAIInfo = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/TitanAIInfo.json"));
+            ShifterAIInfo = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/ShifterAIInfo.json"));
+            HumanWeaponInfo = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/HumanWeaponInfo.json"));
         }
 
         public static JSONNode GetTitanAI(GameDifficulty difficulty, string titanType)

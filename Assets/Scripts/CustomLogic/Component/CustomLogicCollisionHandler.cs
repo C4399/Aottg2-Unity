@@ -93,7 +93,7 @@ namespace CustomLogic
                 classInstance.OnCollisionExit(builtin);
         }
 
-        public static CustomLogicBaseBuiltin GetBuiltin(Collider other)
+        protected CustomLogicBaseBuiltin GetBuiltin(Collider other)
         {
             if (other == null || other.transform == null)
                 return null;

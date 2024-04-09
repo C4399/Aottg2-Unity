@@ -52,15 +52,6 @@ namespace Weather
                         return new Color255(r, g, b, a);
                     }
                 }
-                else if (valueType == WeatherValueType.Vector3)
-                {
-                    Vector3 v1 = (Vector3)Values[0];
-                    Vector3 v2 = (Vector3)Values[1];
-                    float x = Random.Range(Mathf.Min(v1.x, v2.x), Mathf.Max(v1.x, v2.x));
-                    float y = Random.Range(Mathf.Min(v1.y, v2.y), Mathf.Max(v1.y, v2.y));
-                    float z = Random.Range(Mathf.Min(v1.z, v2.z), Mathf.Max(v1.z, v2.z));
-                    return new Vector3(x, y, z);
-                }
             }
             else if (selectType == WeatherValueSelectType.RandomFromList)
             {
@@ -108,15 +99,9 @@ namespace Weather
                 case WeatherEffect.Thunder:
                 case WeatherEffect.Snow:
                 case WeatherEffect.Wind:
-                case WeatherEffect.RainForce:
-                case WeatherEffect.SnowForce:
-                case WeatherEffect.WindForce:
                     return WeatherValueType.Float;
                 case WeatherEffect.Skybox:
                     return WeatherValueType.String;
-                case WeatherEffect.DaylightDirection:
-                case WeatherEffect.WindDirection:
-                    return WeatherValueType.Vector3;
                 default:
                     return WeatherValueType.None;
             }
@@ -136,8 +121,6 @@ namespace Weather
                     return SettingType.Int;
                 case WeatherValueType.String:
                     return SettingType.String;
-                case WeatherValueType.Vector3:
-                    return SettingType.Vector3;
                 default:
                     return SettingType.None;
             }
@@ -170,7 +153,6 @@ namespace Weather
                 case WeatherValueType.Float:
                 case WeatherValueType.Color:
                 case WeatherValueType.Int:
-                case WeatherValueType.Vector3:
                     return AllWeatherValueSelectTypes;
                 case WeatherValueType.Bool:
                 case WeatherValueType.String:
@@ -215,7 +197,6 @@ namespace Weather
         None,
         Daylight,
         DaylightIntensity,
-        DaylightDirection,
         AmbientLight,
         Skybox,
         SkyboxColor,
@@ -225,11 +206,7 @@ namespace Weather
         Rain,
         Thunder,
         Snow,
-        Wind,
-        WindDirection,
-        RainForce,
-        SnowForce,
-        WindForce
+        Wind
     }
 
     public enum WeatherValueSelectType
@@ -247,8 +224,7 @@ namespace Weather
         Int,
         String,
         Color,
-        Bool,
-        Vector3
+        Bool
     }
 
     public enum WeatherSkybox
@@ -258,7 +234,6 @@ namespace Weather
         Dusk1,
         Night1,
         Night2,
-        Night3,
         Cloudy1,
         Storm1
     }

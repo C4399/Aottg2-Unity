@@ -12,8 +12,12 @@ namespace ApplicationManagers
     {
         private static readonly string DevelopmentConfigPath = Application.dataPath + "/DevelopmentConfig";
         public static bool DevelopmentMode = false;
-        public const string GameVersion = "";
-        public static string LobbyVersion = "TestLobby";
+
+        // must be manually changed every update
+        public const string GameVersion = "10/31/2023";
+
+        // must be manually updated every compatibility-breaking update
+        public const string LobbyVersion = "10312023";
 
         public static void Init()
         {

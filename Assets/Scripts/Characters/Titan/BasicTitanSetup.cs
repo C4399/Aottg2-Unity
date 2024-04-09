@@ -20,10 +20,8 @@ namespace Characters
 
         public static void Init()
         {
-            if (ApplicationConfig.DevelopmentMode)
-                Info = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/TitanSetupInfo.json"));
-            else
-                Info = JSON.Parse(ResourceManager.TryLoadText(ResourcePaths.CharacterData, "TitanSetupInfo"));
+            // Info = JSON.Parse(ResourceManager.TryLoadText("TitanSetupInfo"));
+            Info = JSON.Parse(File.ReadAllText(FolderPaths.TesterData + "/TitanSetupInfo.json"));
         }
 
         public static int[] GetRandomBodyHeadCombo(JSONNode node = null)
@@ -79,7 +77,7 @@ namespace Characters
             hair.transform.localScale = Vector3.one;
             foreach (Renderer renderer in hair.GetComponentsInChildren<Renderer>())
             {
-                renderer.material = HumanSetupMaterials.GetHairMaterial(json["HairPrefab"].Value);
+                renderer.material = HumanSetupMaterials.Materials[json["HairPrefab"].Value];
                 renderer.material.color = json["HairColor"].ToColor();
             }
 

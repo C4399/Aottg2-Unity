@@ -2,7 +2,6 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Runtime.InteropServices.WindowsRuntime;
 using UnityEngine;
 using Utility;
 
@@ -95,9 +94,6 @@ namespace Weather
                 case WeatherValueType.Color:
                     str = SerializeColor((Color)value);
                     break;
-                case WeatherValueType.Vector3:
-                    str = SerializeVector3((Vector3)value);
-                    break;
             }
             str = str.Replace(",", string.Empty);
             str = str.Replace(";", string.Empty);
@@ -124,15 +120,6 @@ namespace Weather
         private string SerializeColorValue(float value)
         {
             return ((int)(value * 255f)).ToString();
-        }
-
-        private string SerializeVector3(Vector3 v)
-        {
-            string[] str = new string[3];
-            str[0] = v.x.ToString();
-            str[1] = v.y.ToString();
-            str[2] = v.z.ToString();
-            return string.Join("-", str);
         }
 
         private WeatherEvent DeserializeLine(string line)
@@ -181,8 +168,6 @@ namespace Weather
                     return Convert.ToBoolean(int.Parse(item));
                 case WeatherValueType.Color:
                     return DeserializeColor(item);
-                case WeatherValueType.Vector3:
-                    return DeserializeVector3(item);
             }
             return null;
         }
@@ -201,12 +186,6 @@ namespace Weather
         private int DeserializeColorValue(string str)
         {
             return int.Parse(str);
-        }
-
-        private Vector3 DeserializeVector3(string item)
-        {
-            string[] nums = item.Split('-');
-            return new Vector3(float.Parse(nums[0]), float.Parse(nums[1]), float.Parse(nums[2]));
         }
     }
 }

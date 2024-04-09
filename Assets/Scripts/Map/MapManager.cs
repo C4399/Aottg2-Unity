@@ -30,70 +30,56 @@ namespace Map
             EventManager.OnPreLoadScene += OnPreLoadScene;
         }
 
-        public static bool TryGetRandomTagXform(string tag, out Transform xform)
+        public static Vector3 GetRandomTagPosition(string tag, Vector3 defaultPosition)
         {
-            var go = GetRandomTag(tag);
-            if (go)
-            {
-                xform = go.transform;
-                return true;
-            }
-
-            xform = null;
-            return false;
-        }
-        
-        public static bool TryGetRandomTagsXform(List<string> tags, out Transform xform)
-        {
-            foreach (string tag in tags)
-            {
-                var go = GetRandomTag(tag);
-                if (go)
-                {
-                    xform = go.transform;
-                    return true;
-                }
-            }
-
-            xform = null;
-            return false;
+            GameObject go = GetRandomTag(tag);
+            if (go != null)
+                return go.transform.position;
+            return defaultPosition;
         }
 
-        /// <summary>
-        /// <para>Outputs a list of <paramref name="count"/> randomly chosen objects with a given tag within avoidance parameters.</para>
-        /// </summary>
-        /// <returns>False if no transforms have the specified tag.</returns>
-        public static bool TryGetRandomTagXforms(string tag, Vector3 avoidPosition, float avoidRadius, int count, out List<Transform> xforms)
+        public static List<Vector3> GetRandomTagPositions(string tag, Vector3 avoidPosition, float avoidRadius, Vector3 defaultPosition, int count)
         {
-            xforms = null;
-            if (!MapLoader.Tags.TryGetValue(tag, out List<MapObject> objs))
-                return false;
-
-            List<Transform> allXforms = new List<Transform>();
-            xforms = new List<Transform>();
-            foreach (var obj in objs)
-                allXforms.Add(obj.GameObject.transform);
-
-            List<Transform> currentXforms = new List<Transform>(allXforms);
+            List<Vector3> allPositions = new List<Vector3>();
+            List<Vector3> finalPositions = new List<Vector3>();
+            if (MapLoader.Tags.ContainsKey(tag))
+            {
+                foreach (var obj in MapLoader.Tags[tag])
+                    allPositions.Add(obj.GameObject.transform.position);
+            }
+            else
+                allPositions.Add(defaultPosition);
+            List<Vector3> currentPositions = new List<Vector3>(allPositions);
             int avoids = 0;
             for (int i = 0; i < count; i++)
             {
-                if (currentXforms.Count <= 0)
-                    currentXforms = new List<Transform>(allXforms);
-                int index = Random.Range(0, currentXforms.Count);
-                var position = currentXforms[index].position;
+                if (currentPositions.Count <= 0)
+                    currentPositions = new List<Vector3>(allPositions);
+                int index = Random.Range(0, currentPositions.Count);
+                var position = currentPositions[index];
                 if (avoidRadius <= 0f || Vector3.Distance(position, avoidPosition) > avoidRadius || avoids > 100)
-                    xforms.Add(currentXforms[index]);
+                    finalPositions.Add(currentPositions[index]);
                 else
                 {
                     i--;
                     avoids++;
                 }
-                currentXforms.RemoveAt(index);
+                currentPositions.RemoveAt(index);
             }
-            return true;
+            return finalPositions;
         }
-        
+
+        public static Vector3 GetRandomTagsPosition(List<string> tags, Vector3 defaultPosition)
+        {
+            foreach (string tag in tags)
+            {
+                GameObject go = GetRandomTag(tag);
+                if (go != null)
+                    return go.transform.position;
+            }
+            return defaultPosition;
+        }
+
         public static GameObject GetRandomTag(string tag)
         {
             if (MapLoader.Tags.ContainsKey(tag))
@@ -118,7 +104,7 @@ namespace Map
             else if (sceneName == SceneName.MapEditor)
                 StartMapEditor();
             else
-                MapLoader.StartLoadObjects(new List<string>(), new List<MapScriptBaseObject>(), null, null, false);
+                MapLoader.StartLoadObjects(new List<string>(), new List<MapScriptBaseObject>(), null, false);
         }
 
         private static void StartInGame()
@@ -158,7 +144,7 @@ namespace Map
             }
             MapScript = new MapScript();
             MapScript.Deserialize(BuiltinLevels.LoadMap("Custom", current.Value));
-            MapLoader.StartLoadObjects(MapScript.CustomAssets.CustomAssets, MapScript.Objects.Objects, MapScript.Options, MapScript.Weather, true);
+            MapLoader.StartLoadObjects(MapScript.CustomAssets.CustomAssets, MapScript.Objects.Objects, MapScript.Options, true);
         }
 
         public static void OnLoadBuiltinMapRPC(string category, string name, PhotonMessageInfo info)
@@ -182,7 +168,7 @@ namespace Map
         public static void LoadMap()
         {
             PhotonNetwork.LocalPlayer.SetCustomProperty("CustomMapHash", MapTransfer.MapHash);
-            MapLoader.StartLoadObjects(MapScript.CustomAssets.CustomAssets, MapScript.Objects.Objects, MapScript.Options, MapScript.Weather);
+            MapLoader.StartLoadObjects(MapScript.CustomAssets.CustomAssets, MapScript.Objects.Objects, MapScript.Options);
         }
 
         public override void OnPlayerEnteredRoom(Player player)

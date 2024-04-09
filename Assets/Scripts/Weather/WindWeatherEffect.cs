@@ -20,6 +20,7 @@ namespace Weather
 
         public override void Randomize()
         {
+            WindDirection = new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)).normalized;
         }
 
         public override void Disable(bool fadeOut = false)
