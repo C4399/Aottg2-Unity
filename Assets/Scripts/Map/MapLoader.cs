@@ -1,5 +1,6 @@
 ﻿using ApplicationManagers;
 using Events;
+using Settings;
 using System.Collections;
 using System.Collections.Generic;
 using UI;
@@ -16,6 +17,7 @@ namespace Map
         public static Dictionary<GameObject, MapObject> GoToMapObject = new Dictionary<GameObject, MapObject>();
         public static Dictionary<string, List<MapObject>> Tags = new Dictionary<string, List<MapObject>>();
         public static List<Light> Daylight = new List<Light>();
+        public static List<MapLight> MapLights = new List<MapLight>();
         private static Dictionary<string, Object> _assetCache = new Dictionary<string, Object>();
         private static Dictionary<string, List<Material>> _assetMaterialCache = new Dictionary<string, List<Material>>();
         private static Dictionary<string, List<Material>> _defaultMaterialCache = new Dictionary<string, List<Material>>();
@@ -24,6 +26,8 @@ namespace Map
         public static int HighestObjectId;
         private static MapScriptBasicMaterial _invisibleMaterial;
         public static List<string> Errors = new List<string>();
+        public static bool HasWeather;
+        public static WeatherSet Weather;
         private static GameObject _background;
 
         public static void Init()
@@ -40,6 +44,8 @@ namespace Map
         private static void OnPreLoadScene(SceneName sceneName)
         {
             _instance.StopAllCoroutines();
+            HasWeather = false;
+            Weather = null;
         }
 
         public static int GetNextObjectId()
@@ -48,9 +54,8 @@ namespace Map
             return HighestObjectId;
         }
 
-        public static void StartLoadObjects(List<string> customAssets, List<MapScriptBaseObject> objects, MapScriptOptions options, bool editor = false)
+        public static void StartLoadObjects(List<string> customAssets, List<MapScriptBaseObject> objects, MapScriptOptions options, WeatherSet weather, bool editor = false)
         {
-            Debug.Log(objects.Count);
             Errors.Clear();
             _customMaterialCache.Clear();
             _defaultMaterialCache.Clear();
@@ -59,9 +64,12 @@ namespace Map
             IdToMapObject.Clear();
             GoToMapObject.Clear();
             Daylight.Clear();
+            MapLights.Clear();
             _assetCache.Clear();
             Tags.Clear();
             HighestObjectId = 1;
+            HasWeather = !editor && options != null && options.HasWeather;
+            Weather = weather;
             /*
             if (options != null)
                 LoadBackground(options.Background, options.BackgroundPosition, options.BackgroundRotation);
@@ -89,6 +97,11 @@ namespace Map
             }
         }
         */
+
+        public static void RegisterMapLight(Light light)
+        {
+            MapLights.Add(new MapLight(light));
+        }
 
         public static MapObject FindObjectFromCollider(Collider collider)
         {
@@ -306,13 +319,15 @@ namespace Map
 
         private static GameObject LoadSceneObject(MapScriptSceneObject obj, bool editor)
         {
-            GameObject go;
-            if (obj.Asset == "None")
-                go = new GameObject();
-            else
-                go = LoadPrefabCached(obj.Asset);
+            GameObject go = obj.Asset == "None"
+                ? new GameObject()
+                : LoadPrefabCached(obj.Asset);
+            
             if (editor)
-                SetPhysics(go, MapObjectCollideMode.Physical, MapObjectCollideWith.MapEditor, obj.PhysicsMaterial);
+            {
+                int colliderCount = SetPhysics(go, MapObjectCollideMode.Physical, MapObjectCollideWith.MapEditor, obj.PhysicsMaterial);
+                if (colliderCount == 0) go.AddComponent<MeshCollider>();
+            }
             else
                 SetPhysics(go, obj.CollideMode, obj.CollideWith, obj.PhysicsMaterial);
             SetMaterial(go, obj.Asset, obj.Material, obj.Visible, editor);
@@ -347,6 +362,21 @@ namespace Map
             }
         }
 
+        public static void SetDefaultTiling(string asset, Material mat, Vector2 tiling)
+        {
+            if (asset == "FX/WaterCube1")
+            {
+                mat.SetVector("_Tiling", tiling);
+                mat.SetVector("_Tiling_1", tiling);
+            }
+            else if (asset == "FX/LavaCube1")
+            {
+                mat.SetVector("_BaseColorTiling", tiling);
+                mat.SetVector("_EmitColorTiling", tiling);
+                mat.SetVector("_Normal_Tiling", tiling);
+            }
+        }
+
         public static void SetMaterial(GameObject go, string asset, MapScriptBaseMaterial material, bool visible, bool editor)
         {
             if (asset == "None")
@@ -373,7 +403,7 @@ namespace Map
                 }
                 _assetMaterialCache.Add(asset, assetMats);
             }
-            if (material.Shader == MapObjectShader.Default || material.Shader == MapObjectShader.DefaultNoTint)
+            if (material.Shader == MapObjectShader.Default || material.Shader == MapObjectShader.DefaultNoTint || material.Shader == MapObjectShader.DefaultTiled)
             {
                 string materialHash = asset + material.Serialize();
                 if (!_defaultMaterialCache.ContainsKey(materialHash))
@@ -385,6 +415,8 @@ namespace Map
                         var mat = new Material(assetMat);
                         if (material.Shader != MapObjectShader.DefaultNoTint)
                             mat.color = material.Color.ToColor();
+                        if (material.Shader == MapObjectShader.DefaultTiled)
+                            SetDefaultTiling(asset, mat, ((MapScriptDefaultTiledMaterial)material).Tiling);
                         defaultMats.Add(mat);
                     }
                     _defaultMaterialCache.Add(materialHash, defaultMats);
@@ -456,13 +488,15 @@ namespace Map
             }
         }
 
-        private static void SetPhysics(GameObject go, string collideMode, string collideWith, string physicsMaterial)
+        /// <returns>Number of colliders on <paramref name="go"/>.</returns>
+        private static int SetPhysics(GameObject go, string collideMode, string collideWith, string physicsMaterial)
         {
             PhysicMaterial material = null;
             if (physicsMaterial != "Default")
                 material = (PhysicMaterial)LoadAssetCached("Physics", physicsMaterial);
             int layer = GetColliderLayer(collideWith);
-            foreach (Collider c in go.GetComponentsInChildren<Collider>())
+            Collider[] colliders = go.GetComponentsInChildren<Collider>();
+            foreach (Collider c in colliders)
             {
                 c.isTrigger = collideMode == MapObjectCollideMode.Region;
                 c.enabled = collideMode != MapObjectCollideMode.None;
@@ -471,6 +505,7 @@ namespace Map
                 c.gameObject.layer = layer;
             }
             go.layer = layer;
+            return colliders.Length;
         }
 
         public static void SetCollider(Collider c, string collideMode, string collideWith)
@@ -480,7 +515,7 @@ namespace Map
             c.gameObject.layer = GetColliderLayer(collideWith);
         }
 
-        private static int GetColliderLayer(string collideWith)
+        public static int GetColliderLayer(string collideWith)
         {
             int layer = 0;
             if (collideWith == MapObjectCollideWith.All)
@@ -544,6 +579,7 @@ namespace Map
     {
         public static string Default = "Default";
         public static string DefaultNoTint = "DefaultNoTint";
+        public static string DefaultTiled = "DefaultTiled";
         // public static string Background = "Background";
         public static string Basic = "Basic";
         public static string Transparent = "Transparent";

@@ -15,7 +15,7 @@ namespace UI
     class CreateGameSelectMapPopup : BasePopup
     {
         protected override string Title => string.Empty;
-        protected override float Width => 1100f;
+        protected override float Width => 1095f;
         protected override float Height => 1000f;
         protected override bool CategoryPanel => true;
         protected override bool CategoryButtons => true;
@@ -31,7 +31,7 @@ namespace UI
 
         protected virtual string[] GetCategories()
         {
-            return new string[] { "General", "PVP", "Racing Basic", "Racing Hard", "Boss" };
+            return new string[] { "General", "PVP", "Racing Basic", "Racing Hard", "Boss", "Custom" };
         }
 
         protected override void SetupTopButtons()
