@@ -94,7 +94,9 @@ namespace Cameras
             else
                 _anchorDistance = _heightDistance = 1f;
             if (resetRotation)
-                Cache.Transform.rotation = Quaternion.Euler(0f, 0f, 0f);
+                Cache.Transform.rotation = character.IsMine()
+                    ? Util.ConstrainedToY(_follow.Cache.Transform.rotation)
+                    : Quaternion.Euler(0f, 0f, 0f);
             if (character is Human && character.IsMine())
                 _menu.HUDBottomHandler.SetBottomHUD((Human)character);
             else
@@ -130,9 +132,19 @@ namespace Cameras
             Cache.Transform.position = CustomLogicManager.CameraPosition;
             Cache.Transform.rotation = Quaternion.Euler(CustomLogicManager.CameraRotation);
         }
+
+        private void UpdateMapLights()
+        {
+            var transform = Cache.Transform;
+            foreach (var mapLight in MapLoader.MapLights)
+            {
+                mapLight.UpdateCull(transform);
+            }
+        }
         
         protected override void LateUpdate()
         {
+            UpdateMapLights();
             if (CustomLogicManager.Cutscene || CustomLogicManager.ManualCamera)
             {
                 SyncCustomPosition();
@@ -143,8 +155,13 @@ namespace Cameras
             {
                 if (_follow != _inGameManager.CurrentCharacter && _inGameManager.CurrentCharacter != null)
                     SetFollow(_inGameManager.CurrentCharacter);
-                if (_input.ChangeCamera.GetKeyDown())
-                    _freeCam = !_freeCam;
+                if (_inGameManager.CurrentCharacter == null)
+                {
+                    if (_input.ChangeCamera.GetKeyDown())
+                        _freeCam = !_freeCam;
+                }
+                else
+                    _freeCam = false;
                 if (_freeCam)
                     _follow = null;
                 else if (_follow == null)

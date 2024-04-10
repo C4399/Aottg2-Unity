@@ -22,7 +22,7 @@ namespace Characters
         protected override float DefaultRunSpeed => 100f;
         protected override float DefaultWalkSpeed => 20f;
         protected override float DefaultRotateSpeed => 10f;
-        protected override float DefaultJumpForce => 150f;
+        protected override float DefaultJumpForce => 200f;
         protected override float SizeMultiplier => 3f;
         public override float DefaultCrippleTime => 3.5f;
         protected bool _needRoar = true;
@@ -79,12 +79,12 @@ namespace Characters
         protected IEnumerator WaitAndBecomeHuman(float time)
         {
             yield return new WaitForSeconds(time);
-            Cache.PhotonView.RPC("MarkTransformingRPC", RpcTarget.AllBuffered, new object[0]);
-            Cache.PhotonView.RPC("MarkDeadRPC", RpcTarget.AllBuffered, new object[0]);
+            Cache.PhotonView.RPC("MarkTransformingRPC", RpcTarget.AllBuffered);
+            Cache.PhotonView.RPC("MarkDeadRPC", RpcTarget.AllBuffered);
             StartCoroutine(WaitAndDie());
             yield return new WaitForSeconds(2f);
-            _inGameManager.SpawnPlayerAt(false, BaseTitanCache.Neck.position);
-            Human currentCharacter = ((Human)(_inGameManager.CurrentCharacter));
+            _inGameManager.SpawnPlayerAt(false, BaseTitanCache.Neck.position, BaseTitanCache.Neck.rotation.eulerAngles.y);
+            Human currentCharacter = ((Human)_inGameManager.CurrentCharacter);
             currentCharacter.StartCoroutine(currentCharacter.WaitAndTransformFromShifter(PreviousHumanGas, PreviousHumanWeapon));
         }
 

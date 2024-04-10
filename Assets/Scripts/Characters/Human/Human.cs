@@ -74,6 +74,8 @@ namespace Characters
         public float ReelOutScrollTimeLeft = 0f;
         public float TargetMagnitude = 0f;
         public bool IsWalk;
+        public const float RealismMaxReel = 120f;
+        public const float RealismDeathVelocity = 100f;
         private const float MaxVelocityChange = 10f;
         public float RunSpeed;
         private float _originalDashSpeed;
@@ -102,6 +104,7 @@ namespace Characters
         public string RunAnimation;
         public bool _attackRelease;
         public bool _attackButtonRelease;
+        public bool _reelInWaitForRelease;
         private float _stateTimeLeft = 0f;
         private float _dashTimeLeft = 0f;
         private bool _cancelGasDisable;
@@ -141,7 +144,7 @@ namespace Characters
             Ungrab(false, true);
         }
 
-        public Vector3 GetAimPoint()
+        public override Vector3 GetAimPoint()
         {
             RaycastHit hit;
             Ray ray = SceneLoader.CurrentCamera.Camera.ScreenPointToRay(Input.mousePosition);
@@ -463,7 +466,7 @@ namespace Characters
 
         public void TransformShifter(string shifter, float liveTime)
         {
-            _inGameManager.SpawnPlayerShifterAt(shifter, liveTime, Cache.Transform.position);
+            _inGameManager.SpawnPlayerShifterAt(shifter, liveTime, Cache.Transform.position, Cache.Transform.rotation.eulerAngles.y);
             ((BaseShifter)_inGameManager.CurrentCharacter).PreviousHumanGas = CurrentGas;
             ((BaseShifter)_inGameManager.CurrentCharacter).PreviousHumanWeapon = Weapon;
             PhotonNetwork.Destroy(gameObject);
@@ -484,8 +487,7 @@ namespace Characters
                 weapon.CurrentDurability = previousBlade.CurrentDurability;
                 if (weapon.CurrentDurability == 0)
                 {
-                    Setup._part_blade_l.SetActive(false);
-                    Setup._part_blade_r.SetActive(false);
+                    ToggleBlades(false);
                 }
             }
             else if (previousHumanWeapon is AmmoWeapon)
@@ -511,8 +513,7 @@ namespace Characters
                     return;
                 if (Weapon is AHSSWeapon || Weapon is APGWeapon)
                 {
-                    Setup._part_blade_l.SetActive(false);
-                    Setup._part_blade_r.SetActive(false);
+                    ToggleBlades(false);
                     if (Weapon is AHSSWeapon)
                     {
                         CancelHookLeftKey = true;
@@ -533,8 +534,7 @@ namespace Characters
             {
                 if (((BladeWeapon)Weapon).BladesLeft <= 0)
                     return;
-                Setup._part_blade_l.SetActive(false);
-                Setup._part_blade_r.SetActive(false);
+                ToggleBlades(false);
                 if (Grounded)
                     PlaySound(HumanSounds.BladeReloadGround);
                 else
@@ -571,8 +571,7 @@ namespace Characters
             Weapon.Reload();
             if (Weapon is BladeWeapon || Weapon is AHSSWeapon || Weapon is APGWeapon)
             {
-                Setup._part_blade_l.SetActive(true);
-                Setup._part_blade_r.SetActive(true);
+                ToggleBlades(true);
             }
             else if (Weapon is ThunderspearWeapon)
                 SetThunderspears(true, true);
@@ -621,8 +620,7 @@ namespace Characters
                 return;
             if (Weapon is BladeWeapon)
             {
-                Setup._part_blade_l.SetActive(true);
-                Setup._part_blade_r.SetActive(true);
+                ToggleBlades(true);
             }
             Weapon.Reset();
             CurrentGas = MaxGas;
@@ -724,11 +722,12 @@ namespace Characters
             SetInterpolation(true);
             if (IsMine())
             {
-                Cache.PhotonView.RPC("SetupRPC", RpcTarget.AllBuffered, new object[] { Setup.CustomSet.SerializeToJsonString(), (int)Setup.Weapon });
+                TargetAngle = Cache.Transform.eulerAngles.y;
+                Cache.PhotonView.RPC("SetupRPC", RpcTarget.AllBuffered, Setup.CustomSet.SerializeToJsonString(), (int)Setup.Weapon);
                 LoadSkin();
                 if (SettingsManager.InGameCurrent.Misc.Horses.Value)
                 {
-                    Horse = (Horse)CharacterSpawner.Spawn(CharacterPrefabs.Horse, Cache.Transform.position + Vector3.right * 2f, Quaternion.identity);
+                    Horse = (Horse)CharacterSpawner.Spawn(CharacterPrefabs.Horse, Cache.Transform.position + Vector3.right * 2f, Quaternion.Euler(0f, TargetAngle, 0f));
                     Horse.Init(this);
                 }
                 if (DebugTesting.DebugPhase)
@@ -799,9 +798,7 @@ namespace Characters
                 weapon.UseDurability(2f);
                 if (weapon.CurrentDurability == 0f)
                 {
-                    StopImmediateBladeTrails();
-                    Setup._part_blade_l.SetActive(false);
-                    Setup._part_blade_r.SetActive(false);
+                    ToggleBlades(false);
                     PlaySound(HumanSounds.BladeBreak);
                 }
                 damage = (int)(damage * CharacterData.HumanWeaponInfo["Blade"]["DamageMultiplier"].AsFloat);
@@ -879,7 +876,6 @@ namespace Characters
                 _stateTimeLeft -= Time.deltaTime;
                 _dashCooldownLeft -= Time.deltaTime;
                 _reloadCooldownLeft -= Time.deltaTime;
-                UpdateBladeTrails();
                 if (_needFinishReload)
                 {
                     _reloadTimeLeft -= Time.deltaTime;
@@ -1344,7 +1340,8 @@ namespace Characters
                         }
                         else
                             _targetRotation = GetTargetRotation();
-                        if (((!pivotLeft && !pivotRight) && (MountState == HumanMountState.None && SettingsManager.InputSettings.Human.Jump.GetKey())) && (CurrentGas > 0f))
+                        bool isUsingGas = SettingsManager.InputSettings.Human.Jump.GetKey() ^ SettingsManager.InputSettings.Human.AutoUseGas.Value;
+                        if (((!pivotLeft && !pivotRight) && (MountState == HumanMountState.None && isUsingGas)) && (CurrentGas > 0f))
                         {
                             if (HasDirection)
                             {
@@ -1389,7 +1386,7 @@ namespace Characters
                             _currentVelocity += Cache.Transform.forward * 4f / Mathf.Max(Cache.Rigidbody.mass, 0.001f);
                             Cache.Rigidbody.velocity = _currentVelocity;
                         }
-                        if (!SettingsManager.InGameCurrent.Misc.AllowStock.Value)
+                        if (!SettingsManager.InGameCurrent.Misc.AllowStock.Value || SettingsManager.InGameCurrent.Misc.RealismMode.Value)
                         {
                             _currentVelocity = _currentVelocity.normalized * Mathf.Min(_currentVelocity.magnitude, 20f);
                             Cache.Rigidbody.velocity = _currentVelocity;
@@ -1397,6 +1394,7 @@ namespace Characters
                     }
                     ToggleSparks(false);
                 }
+                gravity += WeatherManager.GetWeatherForce();
                 Cache.Rigidbody.AddForce(gravity);
                 if (!_cancelGasDisable)
                 {
@@ -1464,6 +1462,12 @@ namespace Characters
             float speedMultiplier = Mathf.Max(1f - (angle * 1.5f * 0.01f), 0f);
             float speed = _lastVelocity.magnitude * speedMultiplier;
             Cache.Rigidbody.velocity = velocity.normalized * speed;
+            float speedDiff = _lastVelocity.magnitude - Cache.Rigidbody.velocity.magnitude;
+            if (SettingsManager.InGameCurrent.Misc.RealismMode.Value && speedDiff > RealismDeathVelocity)
+            {
+                GetKilled("Impact");
+                return;
+            }
         }
 
         private void LateUpdateReelOut()
@@ -1503,7 +1507,7 @@ namespace Characters
                     Vector3 v = (hook.GetHookPosition() - Cache.Transform.position).normalized * 10f;
                     if (!(_launchLeft && _launchRight))
                         v *= 2f;
-                    if ((Vector3.Angle(Cache.Rigidbody.velocity, v) > 90f) && SettingsManager.InputSettings.Human.Jump.GetKey())
+                    if ((Vector3.Angle(Cache.Rigidbody.velocity, v) > 90f) && (SettingsManager.InputSettings.Human.Jump.GetKey() ^ SettingsManager.InputSettings.Human.AutoUseGas.Value))
                     {
                         pivot = true;
                     }
@@ -1538,12 +1542,22 @@ namespace Characters
             float newSpeed = _currentVelocity.magnitude + addSpeed;
             Vector3 v = position - Cache.Rigidbody.position;
             float reelAxis = GetReelAxis();
+            if (reelAxis > 0f)
+            {
+                if (SettingsManager.InGameCurrent.Misc.RealismMode.Value && Vector3.Distance(Cache.Transform.position, position) > RealismMaxReel)
+                    reelAxis = 0f;
+            }
             float reel = Mathf.Clamp(reelAxis, -0.8f, 0.8f) + 1f;
             v = Vector3.RotateTowards(v, _currentVelocity, 1.53938f * reel, 1.53938f * reel).normalized;
             if (reelAxis > 0f)
                 _isReelingOut = true;
-            else if (reelAxis < 0f && SettingsManager.SoundSettings.ReelInEffect.Value)
-                PlaySoundRPC(HumanSounds.ReelIn, Util.CreateLocalPhotonInfo());
+            else if (reelAxis < 0f && !_reelInWaitForRelease)
+            {
+                if (SettingsManager.SoundSettings.ReelInEffect.Value)
+                    PlaySoundRPC(HumanSounds.ReelIn, Util.CreateLocalPhotonInfo());
+                if (!SettingsManager.InputSettings.Human.ReelInHolding.Value)
+                    _reelInWaitForRelease = true;
+            }
             _currentVelocity = v * newSpeed;
             Cache.Rigidbody.velocity = _currentVelocity;
         }
@@ -2557,6 +2571,43 @@ namespace Characters
 
         private void ToggleBladeTrails(bool toggle)
         {
+            if (IsMine())
+                Cache.PhotonView.RPC("ToggleBladeTrailsRPC", RpcTarget.All, new object[] { toggle });
+        }
+
+        private void ToggleBlades(bool toggle)
+        {
+            if (IsMine())
+                Cache.PhotonView.RPC("ToggleBladesRPC", RpcTarget.All, new object[] { toggle });
+        }
+
+        [PunRPC]
+        protected void ToggleBladesRPC(bool toggle, PhotonMessageInfo info)
+        {
+            if (info.Sender != null && info.Sender != Cache.PhotonView.Owner)
+                return;
+            if (toggle)
+            {
+                Setup._part_blade_l.SetActive(true);
+                Setup._part_blade_r.SetActive(true);
+            }
+            else
+            {
+                if (Setup.LeftTrail != null && Setup.RightTrail != null)
+                {
+                    Setup.LeftTrail.StopImmediate();
+                    Setup.RightTrail.StopImmediate();
+                }
+                Setup._part_blade_l.SetActive(false);
+                Setup._part_blade_r.SetActive(false);
+            }
+        }
+
+        [PunRPC]
+        protected void ToggleBladeTrailsRPC(bool toggle, PhotonMessageInfo info)
+        {
+            if (info.Sender != null && info.Sender != Cache.PhotonView.Owner)
+                return;
             if (toggle && SettingsManager.GraphicsSettings.WeaponTrailEnabled.Value)
             {
                 Setup.LeftTrail.Emit = true;
@@ -2569,12 +2620,6 @@ namespace Characters
                 Setup.LeftTrail._emitTime = 0.1f;
                 Setup.RightTrail._emitTime = 0.1f;
             }
-        }
-
-        private void StopImmediateBladeTrails()
-        {
-            Setup.LeftTrail.StopImmediate();
-            Setup.RightTrail.StopImmediate();
         }
 
         protected override string GetFootstepAudio(int phase)
